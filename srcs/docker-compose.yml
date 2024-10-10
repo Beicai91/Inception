@@ -1,0 +1,71 @@
+version: '3.8'
+
+# use bind mount 
+volumes:
+  wordpress:
+    name: wordpress
+    driver: local
+    driver_opts:
+      device: /Users/caibei/Desktop/Inception_data/wordpress_data
+      o: bind
+      type: none
+  mariadb:
+    name: mariadb
+    driver: local
+    driver_opts:
+      device: /Users/caibei/Desktop/Inception_data/mariadb_data
+      o: bind
+      type: none
+
+networks:
+  inception:
+    name: inception
+
+services:
+  nginx:
+    build: 
+      context: ./requirements/nginx
+      dockerfile: Dockerfile
+    container_name: nginx_container
+    ports:
+      - "443:443"
+    image: nginx:custom_42 # Nginx image built will be tagged as nginx:custom_42
+    depends_on:
+      - wordpress
+    volumes:
+      - wordpress:/var/www/wd)data # mount WordPress volume(on host machine) inside Nginx container
+    networks:
+      - inception # a virtual network that allow Docker containers to communicate with each other by referencing container name
+    env_file:
+      - .env
+    restart: always
+
+  mariadb:
+    container_name: mariadb
+    build: 
+      context: ./requirements/mariadb
+      dockerfile: Dockerfile
+    image: mariadb:custom_42
+    volumes:
+      - mariadb:/var/lib/mysql
+    env_file:
+      - .env
+    networks:
+      - inception
+    restart: always
+
+  wordpress:
+    container_name: wordpress
+    build: 
+      context: ./requirements/wordpress
+      dockerfile: Dockerfile
+    image: wordpress:custom_42
+    depends_on:
+      - mariadb
+    volumes:
+      - wordpress:/var/www/wordpress # mount wordpress volume(on host machine) to WordPress container's directory where actual wordpress files are downloaded and stored during image building. Any change to /var/www/wordpress of WordPress container will be mirrored to wordpress volume, then mirroed to /var/www/wd_data in Nginx container. So Nginx can access and serve these files
+    env_file:
+      - .env
+    networks:
+      - inception
+    restart: always
